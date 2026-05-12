@@ -358,6 +358,7 @@ task.spawn(function()
         HS:NewButton("Spawn Blitz","Spawns Blitz",function() cW(getgenv().SpawnEntity_Blitz) end)
         HS:NewButton("Spawn Ripper","Spawns Ripper",function() cW(getgenv().SpawnEntity_Ripper) end)
         HS:NewButton("Spawn Rebound","Spawns Rebound",function() cW(getgenv().SpawnEntity_Rebound) end)
+        HS:NewButton("Spawn Frostbite","Spawns Frostbite",function() cW(getgenv().SpawnEntity_Frostbite) end)
         HS:NewButton("Spawn Shocker","Spawns Shocker",function() cW(getgenv().SpawnEntity_Shocker) end)
         HS:NewButton("Spawn Deer God","Spawns Deer God",function() cW(getgenv().SpawnEntity_DeerGod) end)
         HS:NewButton("Spawn A-200","Spawns A-200",function() cW(getgenv().SpawnEntity_A200) end)
@@ -1267,6 +1268,57 @@ local function SE_Cease()
     end, function(er) return debug.traceback(er) end)
 end
 getgenv().SpawnEntity_Cease=SE_Cease
+
+local function SE_Frostbite()
+    if not getgenv().SpawnStaticEntity then return end
+    local PREPARE_ASSET = "https://github.com/7dls-ui/test-hardcore-entities-hardcore-script/raw/refs/heads/main/Hardcore/FrostbitePrepare2.rbxm"
+    local ATTACK_ASSET = "https://github.com/7dls-ui/test-hardcore-entities-hardcore-script/raw/refs/heads/main/Hardcore/FrostbiteAttack.rbxm"
+    local DESPAWN_ASSET = "https://github.com/7dls-ui/test-hardcore-entities-hardcore-script/raw/refs/heads/main/Hardcore/FrostbiteDespawning.rbxm"
+    
+    getgenv().SpawnStaticEntity({
+        Name = "Frostbite", Asset = PREPARE_ASSET, HeightOffset = 1.5, SpawnLocation = "RandomRoom", DespawnOnNextRoom = true, UntouchedAudio = true,
+        OnSpawned = function(model, despawnFunc)
+            getgenv().ActiveCustomEntities = getgenv().ActiveCustomEntities + 1
+            task.delay(5, function()
+                if not model.Parent or model:GetAttribute("Despawning") then return end
+                local attackModel = getgenv().LoadCustomInstance(ATTACK_ASSET)
+                if attackModel then
+                    attackModel:PivotTo(model:GetPivot()) attackModel.Parent = model
+                    for _, v in ipairs(model:GetDescendants()) do
+                        if v:IsA("BasePart") and not v:IsDescendantOf(attackModel) and v ~= model.PrimaryPart then v.Transparency = 1 end
+                    end
+                end
+                task.spawn(function()
+                    while model.Parent and not model:GetAttribute("Despawning") do
+                        task.wait(1)
+                        if not model.Parent or model:GetAttribute("Despawning") then break end
+                        local char = game.Players.LocalPlayer.Character
+                        if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                            if not getgenv().CustomGodMode then
+                                char.Humanoid:TakeDamage(5)
+                                if char.Humanoid.Health <= 0 then
+                                    pcall(function() firesignal(game.ReplicatedStorage.Bricks.DeathHint.OnClientEvent, {"You died to Frostbite.", "You must open the next door quickly to banish it!"}, "Blue") end)
+                                end
+                            end
+                        end
+                    end
+                end)
+            end)
+        end,
+        OnDespawning = function(model)
+            getgenv().ActiveCustomEntities = math.max(0, getgenv().ActiveCustomEntities - 1)
+            model:SetAttribute("Despawning", true)
+            local despawnModel = getgenv().LoadCustomInstance(DESPAWN_ASSET)
+            if despawnModel then
+                despawnModel:PivotTo(model:GetPivot()) despawnModel.Parent = model
+                for _, v in ipairs(model:GetChildren()) do
+                    if v:IsA("Model") and v ~= despawnModel then v:Destroy() end
+                end
+            end
+        end, DespawnDelay = 5
+    })
+end
+getgenv().SpawnEntity_Frostbite = SE_Frostbite
 
 local function SE_Shocker()
     getgenv().SpawnStaticEntity({
