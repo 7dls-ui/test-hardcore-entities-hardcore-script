@@ -358,7 +358,6 @@ task.spawn(function()
         HS:NewButton("Spawn Blitz","Spawns Blitz",function() cW(getgenv().SpawnEntity_Blitz) end)
         HS:NewButton("Spawn Ripper","Spawns Ripper",function() cW(getgenv().SpawnEntity_Ripper) end)
         HS:NewButton("Spawn Rebound","Spawns Rebound",function() cW(getgenv().SpawnEntity_Rebound) end)
-        HS:NewButton("Spawn Frostbite","Spawns Frostbite",function() cW(getgenv().SpawnEntity_Frostbite) end)
         HS:NewButton("Spawn Shocker","Spawns Shocker",function() cW(getgenv().SpawnEntity_Shocker) end)
         HS:NewButton("Spawn Deer God","Spawns Deer God",function() cW(getgenv().SpawnEntity_DeerGod) end)
         HS:NewButton("Spawn A-200","Spawns A-200",function() cW(getgenv().SpawnEntity_A200) end)
@@ -1269,17 +1268,6 @@ local function SE_Cease()
 end
 getgenv().SpawnEntity_Cease=SE_Cease
 
-local function SE_Frostbite()
-    if not spawner then return end
-    coroutine.wrap(function()
-        local e=spawner:Create({Entity={Name="Frostbite",Asset="97585092787249",HeightOffset=3,CanOpenDoors=false,Is2D=false,NavMeshHeightOffset=0,UntouchedAudio=true},Sounds={},Lights={Flicker={Enabled=true,Duration=5},Shatter=false,Repair=false},Earthquake={Enabled=false},CameraShake={Enabled=false},Movement={Speed=0,Delay=999,Reversed=false},Rebounding={Enabled=false,Type="Ambush",Min=0,Max=0,Delay=0},Debug={}}) if not e then return end
-        e:SetCallback("OnSpawned",function() pcall(function() local m,lRV=e.Model,game.ReplicatedStorage.GameData.LatestRoom.Value if not m then return end local root=m:FindFirstChild("Part") or m:FindFirstChild("Main") or m.PrimaryPart if root then local cR=workspace.CurrentRooms:FindFirstChild(tostring(lRV)) if cR and cR:FindFirstChild("RoomEntrance") and cR:FindFirstChild("RoomExit") then local mP=cR.RoomEntrance.Position:Lerp(cR.RoomExit.Position,math.random(30,70)/100) local rp=RaycastParams.new() rp.FilterType,rp.FilterDescendantsInstances=Enum.RaycastFilterType.Include,{cR} local res=workspace:Raycast(mP+Vector3.new(0,10,0),Vector3.new(0,-50,0),rp) m:PivotTo(CFrame.new((res and res.Position or mP)+Vector3.new(0,3,0))) end local c=Instance.new("ColorCorrectionEffect") c.Name,c.TintColor,c.Contrast,c.Parent="FrostbiteTint",Color3.fromRGB(150,180,255),0.5,game:GetService("Lighting") local ts,MG=game:GetService("TweenService"),require(Players.LocalPlayer.PlayerGui.MainUI.Initiator.Main_Game) if MG and MG.camShaker then MG.camShaker:ShakeOnce(5,4,2,5) end local sFX=root:FindFirstChild("Static Effect") if sFX then sFX.Volume=1.5 sFX:Play() task.delay(4.5,function() local eS=root:FindFirstChild("Sound") if eS then eS:Play() end ts:Create(sFX,TweenInfo.new(1,Enum.EasingStyle.Linear),{Volume=0}):Play() task.delay(1,function() sFX:Stop() end) end) end task.delay(5.5,function() if not e:IsAlive() then return end if MG and MG.camShaker then MG.camShaker:ShakeOnce(13,13,8,5) end local aF,amb=root:FindFirstChild("AmbienceFar"),root:FindFirstChild("Ambience") if aF then aF:Stop() end if amb then amb.Volume=2 amb:Play() end local att=root:FindFirstChild("Attachment") if att then for _,p in ipairs(att:GetChildren()) do if p:IsA("ParticleEmitter") then p.Enabled=true end end end if root:FindFirstChild("Part") and root.Part:FindFirstChild("ParticleEmitter") then root.Part.ParticleEmitter.Enabled=true end ts:Create(c,TweenInfo.new(2,Enum.EasingStyle.Sine),{TintColor=Color3.fromRGB(80,90,200),Contrast=0.8}):Play() end) task.spawn(function() task.wait(6.5) while e:IsAlive() do task.wait(1) local char=game.Players.LocalPlayer.Character if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health>0 then local hL=false local cT=char:FindFirstChildOfClass("Tool") if cT and (cT.Name:lower():find("lighter") or cT.Name:lower():find("flashlight")) then hL=true end if not hL and not getgenv().CustomGodMode then char.Humanoid:TakeDamage(5) if char.Humanoid.Health<=0 then local f,sv,gi,to,gg,nx=nil,debug.setupvalue or setupvalue,debug.getinfo or getinfo,typeof,getgc,next for _,v in nx,gg(false) do if typeof(v)=="function" then local i=gi(v) if i.currentline==54 and i.nups==2 and i.is_vararg==0 then f=v break end end end sv(f,1,{"You froze to death.","Frostbite requires you to move fast.","Hold a lighter to stay warm!"}) sv(f,2,"Blue") firesignal(ReplicatedStorage.Bricks.DeathHint.OnClientEvent,{"You froze to death.","Frostbite requires you to move fast.","Hold a lighter to stay warm!"},"Blue") local GS=game.ReplicatedStorage:FindFirstChild("GameStats") if GS and GS:FindFirstChild("Player_"..game.Players.LocalPlayer.Name) then GS["Player_"..game.Players.LocalPlayer.Name].Total.DeathCause.Value="Frostbite" end end end end end end) local dC dC=game.ReplicatedStorage.GameData.LatestRoom.Changed:Connect(function(nR) if nR>lRV then if dC then dC:Disconnect() end e:Despawn() end end) end end) end)
-        e:SetCallback("OnDespawning",function() pcall(function() local c=game:GetService("Lighting"):FindFirstChild("FrostbiteTint") if c then local tw=game:GetService("TweenService"):Create(c,TweenInfo.new(2,Enum.EasingStyle.Sine),{Contrast=0,TintColor=Color3.fromRGB(255,255,255)}) tw:Play() tw.Completed:Connect(function() c:Destroy() end) end local m=e.Model if m then local root=m:FindFirstChild("Part") or m:FindFirstChild("Main") or m.PrimaryPart if root then local att=root:FindFirstChild("Attachment") if att then for _,p in ipairs(att:GetChildren()) do if p:IsA("ParticleEmitter") then p.Enabled=false end end end if root:FindFirstChild("Part") and root.Part:FindFirstChild("ParticleEmitter") then root.Part.ParticleEmitter.Enabled=false end end for _,obj in ipairs(m:GetDescendants()) do if obj:IsA("Sound") then game:GetService("TweenService"):Create(obj,TweenInfo.new(2),{Volume=0}):Play() end end end end) end)
-        e:SetCallback("OnDespawned",function() getgenv().ActiveCustomEntities=math.max(0,getgenv().ActiveCustomEntities-1) end) spawner:Run(e,false)
-    end)()
-end 
-getgenv().SpawnEntity_Frostbite=SE_Frostbite
-
 local function SE_Shocker()
     getgenv().SpawnStaticEntity({
         Name="Shocker",
@@ -1411,7 +1399,6 @@ ReplicatedStorage.GameData.LatestRoom.Changed:Connect(function(nR)
     end
     if TE >= NTI and CanSpawnEntity() then TriggerEntitySpawn("Timer",true) end
     if not CanSpawnEntity() then return end
-    if nR > 2 and math.random(1,100) <= 5 then getgenv().ActiveCustomEntities=getgenv().ActiveCustomEntities+1 coroutine.wrap(SE_Frostbite)() end
     if nR < 2 then return 
     elseif nR >= 2 and nR < 10 then 
         if math.random(1,100) <= 10 then if not TriggerEntitySpawn("Pre10",false) then PES=math.min(1,PES+1) end end 
