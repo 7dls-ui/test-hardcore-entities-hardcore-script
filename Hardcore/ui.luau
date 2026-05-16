@@ -1,4 +1,4 @@
---// macOS Optimized Kavo UI Library Rewrite (V2 - Bug Fixes & Graphite Theme)
+--// macOS Optimized Kavo UI Library Rewrite (V3 - True Fullscreen, Icon Support, Mouse Fixes)
 --// Rebuilt with Quint/Out animations, SF Pro (Gotham) typography, and Apple window controls.
 
 local Kavo = {}
@@ -49,13 +49,12 @@ function Utility:TweenObject(obj, properties, duration, ...)
     tween:Create(obj, tweeninfo(duration or 0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), properties):Play()
 end
 
--- Changed to a sleek "Graphite" macOS style without the bright blue.
 local themes = {
-    SchemeColor = Color3.fromRGB(150, 150, 150), -- Graphite Accent
-    Background = Color3.fromRGB(30, 30, 32), -- macOS Dark Main
-    Header = Color3.fromRGB(45, 45, 48), -- macOS Dark Sidebar/Titlebar
+    SchemeColor = Color3.fromRGB(150, 150, 150),
+    Background = Color3.fromRGB(30, 30, 32),
+    Header = Color3.fromRGB(45, 45, 48),
     TextColor = Color3.fromRGB(240, 240, 240),
-    ElementColor = Color3.fromRGB(55, 55, 58) -- Button Backgrounds
+    ElementColor = Color3.fromRGB(55, 55, 58)
 }
 
 local themeStyles = {
@@ -93,11 +92,11 @@ pcall(function()
     Settings = game:service'HttpService':JSONEncode(readfile(Name))
 end)
 
-local LibName = tostring(math.random(1, 100))..tostring(math.random(1,50))..tostring(math.random(1, 100))
+local activeGuiName = ""
 
 function Kavo:ToggleUI()
-    if game.CoreGui:FindFirstChild(LibName) then
-        local gui = game.CoreGui[LibName]
+    if game.CoreGui:FindFirstChild(activeGuiName) then
+        local gui = game.CoreGui[activeGuiName]
         gui.Enabled = not gui.Enabled
     end
 end
@@ -116,6 +115,7 @@ function Kavo.CreateLib(kavName, themeList)
 
     local selectedTab 
     kavName = kavName or "Library"
+    activeGuiName = kavName
     table.insert(Kavo, kavName)
     
     for i,v in pairs(game.CoreGui:GetChildren()) do
@@ -159,9 +159,17 @@ function Kavo.CreateLib(kavName, themeList)
     blurFrame.ZIndex = 999
 
     ScreenGui.Parent = game.CoreGui
-    ScreenGui.Name = LibName
+    ScreenGui.Name = kavName
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.ResetOnSpawn = false
+    
+    -- NATIVE MOUSE UNLOCKER
+    run.RenderStepped:Connect(function()
+        if ScreenGui.Enabled then
+            input.MouseIconEnabled = true
+            input.MouseBehavior = Enum.MouseBehavior.Default
+        end
+    end)
 
     Main.Name = "Main"
     Main.Parent = ScreenGui
@@ -170,7 +178,7 @@ function Kavo.CreateLib(kavName, themeList)
     Main.Position = UDim2.new(0.336, 0, 0.275, 0)
     Main.Size = UDim2.new(0, 525, 0, 318)
 
-    MainCorner.CornerRadius = UDim.new(0, 12) -- Smoother macOS Window Corners
+    MainCorner.CornerRadius = UDim.new(0, 12)
     MainCorner.Name = "MainCorner"
     MainCorner.Parent = Main
     
@@ -184,7 +192,7 @@ function Kavo.CreateLib(kavName, themeList)
     MainHeader.Parent = Main
     MainHeader.BackgroundColor3 = themeList.Header
     Objects[MainHeader] = "BackgroundColor3"
-    MainHeader.Size = UDim2.new(0, 525, 0, 38)
+    MainHeader.Size = UDim2.new(1, 0, 0, 38) 
     headerCover.CornerRadius = UDim.new(0, 12)
     headerCover.Name = "headerCover"
     headerCover.Parent = MainHeader
@@ -195,7 +203,7 @@ function Kavo.CreateLib(kavName, themeList)
     Objects[coverup] = "BackgroundColor3"
     coverup.BorderSizePixel = 0
     coverup.Position = UDim2.new(0, 0, 0.758, 0)
-    coverup.Size = UDim2.new(0, 525, 0, 10)
+    coverup.Size = UDim2.new(1, 0, 0, 10)
 
     title.Name = "title"
     title.Parent = MainHeader
@@ -211,7 +219,6 @@ function Kavo.CreateLib(kavName, themeList)
     title.TextSize = 13.000
     title.TextXAlignment = Enum.TextXAlignment.Center
     
-    -- macOS Traffic Lights
     TrafficLights.Name = "TrafficLights"
     TrafficLights.Parent = MainHeader
     TrafficLights.BackgroundTransparency = 1
@@ -245,17 +252,20 @@ function Kavo.CreateLib(kavName, themeList)
     Instance.new("UICorner", maxBtn).CornerRadius = UDim.new(1, 0)
 
     local minimized = false
+    local maximized = false
+    local preMaxPos = nil
+    local preMaxSize = nil
     
-    -- BUG FIX: Does NOT destroy the GUI, hides it so the toggle hotkey works
     closeBtn.MouseButton1Click:Connect(function()
-        game.TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+        local originalPos = Main.Position
+        game.TweenService:Create(Main, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, 0, 0, 0),
             Position = UDim2.new(0, Main.AbsolutePosition.X + (Main.AbsoluteSize.X / 2), 0, Main.AbsolutePosition.Y + (Main.AbsoluteSize.Y / 2))
         }):Play()
-        task.wait(0.3)
+        task.wait(0.25)
         ScreenGui.Enabled = false
-        -- Reset size invisibly so it's normal when re-opened
         Main.Size = UDim2.new(0, 525, 0, minimized and 38 or 318)
+        Main.Position = originalPos
     end)
     
     minBtn.MouseButton1Click:Connect(function()
@@ -270,13 +280,32 @@ function Kavo.CreateLib(kavName, themeList)
             }):Play()
         end
     end)
+    
+    maxBtn.MouseButton1Click:Connect(function()
+        maximized = not maximized
+        if maximized then
+            preMaxPos = Main.Position
+            preMaxSize = Main.Size
+            game.TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Size = UDim2.new(1, 0, 1, 0),
+                Position = UDim2.new(0, 0, 0, 0)
+            }):Play()
+            MainCorner.CornerRadius = UDim.new(0, 0)
+        else
+            game.TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Size = preMaxSize or UDim2.new(0, 525, 0, 318),
+                Position = preMaxPos or UDim2.new(0.336, 0, 0.275, 0)
+            }):Play()
+            MainCorner.CornerRadius = UDim.new(0, 12)
+        end
+    end)
 
     MainSide.Name = "MainSide"
     MainSide.Parent = Main
     MainSide.BackgroundColor3 = themeList.Header
     Objects[MainSide] = "Header"
     MainSide.Position = UDim2.new(0, 0, 0, 38)
-    MainSide.Size = UDim2.new(0, 149, 0, 280)
+    MainSide.Size = UDim2.new(0, 149, 1, -38)
 
     sideCorner.CornerRadius = UDim.new(0, 12)
     sideCorner.Name = "sideCorner"
@@ -288,7 +317,7 @@ function Kavo.CreateLib(kavName, themeList)
     Objects[coverup_2] = "Header"
     coverup_2.BorderSizePixel = 0
     coverup_2.Position = UDim2.new(0.95, 0, 0, 0)
-    coverup_2.Size = UDim2.new(0, 7, 0, 280)
+    coverup_2.Size = UDim2.new(0, 7, 1, 0)
     coverup_2.ZIndex = 0
 
     tabFrames.Name = "tabFrames"
@@ -296,7 +325,7 @@ function Kavo.CreateLib(kavName, themeList)
     tabFrames.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     tabFrames.BackgroundTransparency = 1.000
     tabFrames.Position = UDim2.new(0.044, 0, 0.02, 0)
-    tabFrames.Size = UDim2.new(0, 135, 0, 270)
+    tabFrames.Size = UDim2.new(1, -10, 1, -10)
 
     tabListing.Name = "tabListing"
     tabListing.Parent = tabFrames
@@ -308,8 +337,8 @@ function Kavo.CreateLib(kavName, themeList)
     pages.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     pages.BackgroundTransparency = 1.000
     pages.BorderSizePixel = 0
-    pages.Position = UDim2.new(0.299, 0, 0.135, 0)
-    pages.Size = UDim2.new(0, 360, 0, 269)
+    pages.Position = UDim2.new(0, 155, 0, 45)
+    pages.Size = UDim2.new(1, -165, 1, -55)
 
     Pages.Name = "Pages"
     Pages.Parent = pages
@@ -353,7 +382,7 @@ function Kavo.CreateLib(kavName, themeList)
 
         local function UpdateSize()
             local cS = pageListing.AbsoluteContentSize
-            game.TweenService:Create(page, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+            game.TweenService:Create(page, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 CanvasSize = UDim2.new(0,cS.X,0,cS.Y)
             }):Play()
         end
@@ -372,13 +401,13 @@ function Kavo.CreateLib(kavName, themeList)
         pageListing.Name = "pageListing"
         pageListing.Parent = page
         pageListing.SortOrder = Enum.SortOrder.LayoutOrder
-        pageListing.Padding = UDim.new(0, 6) -- Slightly more breathing room
+        pageListing.Padding = UDim.new(0, 6) 
 
         tabButton.Name = tabName.."TabButton"
         tabButton.Parent = tabFrames
         tabButton.BackgroundColor3 = themeList.SchemeColor
         Objects[tabButton] = "SchemeColor"
-        tabButton.Size = UDim2.new(0, 130, 0, 26)
+        tabButton.Size = UDim2.new(1, 0, 0, 26)
         tabButton.AutoButtonColor = false
         tabButton.Font = Enum.Font.Gotham
         tabButton.Text = "  " .. tabName
@@ -414,11 +443,11 @@ function Kavo.CreateLib(kavName, themeList)
             page.Visible = true
             for i,v in next, tabFrames:GetChildren() do
                 if v:IsA("TextButton") then
-                    Utility:TweenObject(v, {BackgroundTransparency = 1}, 0.3)
+                    Utility:TweenObject(v, {BackgroundTransparency = 1}, 0.25)
                     v.Font = Enum.Font.Gotham
                 end
             end
-            Utility:TweenObject(tabButton, {BackgroundTransparency = 0}, 0.3)
+            Utility:TweenObject(tabButton, {BackgroundTransparency = 0}, 0.25)
             tabButton.Font = Enum.Font.GothamSemibold
         end)
         
@@ -463,7 +492,7 @@ function Kavo.CreateLib(kavName, themeList)
             sectionHead.Name = "sectionHead"
             sectionHead.Parent = sectionFrame
             sectionHead.BackgroundTransparency = 1
-            sectionHead.Size = UDim2.new(0, 345, 0, 25)
+            sectionHead.Size = UDim2.new(1, -10, 0, 25)
 
             sectionName.Name = "sectionName"
             sectionName.Parent = sectionHead
@@ -493,13 +522,14 @@ function Kavo.CreateLib(kavName, themeList)
                 local innerSc = sectionElListing.AbsoluteContentSize
                 sectionInners.Size = UDim2.new(1, 0, 0, innerSc.Y)
                 local frameSc = sectionlistoknvm.AbsoluteContentSize
-                sectionFrame.Size = UDim2.new(0, 345, 0, frameSc.Y)
+                sectionFrame.Size = UDim2.new(1, -10, 0, frameSc.Y)
             end
             updateSectionFrame()
             UpdateSize()
             
             local Elements = {}
-            function Elements:NewButton(bname,tipINf, callback)
+            -- Added explicit Icon Support
+            function Elements:NewButton(bname, tipINf, callback, iconAsset)
                 local ButtonFunction = {}
                 tipINf = tipINf or "Tip: Clicking this nothing will happen!"
                 bname = bname or "Click Me!"
@@ -516,7 +546,7 @@ function Kavo.CreateLib(kavName, themeList)
                 buttonElement.Parent = sectionInners
                 buttonElement.BackgroundColor3 = themeList.ElementColor
                 buttonElement.ClipsDescendants = true
-                buttonElement.Size = UDim2.new(0, 345, 0, 32)
+                buttonElement.Size = UDim2.new(1, 0, 0, 32)
                 buttonElement.AutoButtonColor = false
                 buttonElement.Font = Enum.Font.Gotham
                 buttonElement.Text = ""
@@ -530,23 +560,19 @@ function Kavo.CreateLib(kavName, themeList)
                 btnStroke.Transparency = 0.8
                 btnStroke.Thickness = 1
 
-                touch.Name = "touch"
+                touch.Name = "icon"
                 touch.Parent = buttonElement
-                touch.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
                 touch.BackgroundTransparency = 1.000
                 touch.Position = UDim2.new(0.02, 0, 0.15, 0)
                 touch.Size = UDim2.new(0, 20, 0, 20)
-                touch.Image = "rbxassetid://3926305904"
-                touch.ImageColor3 = themeList.SchemeColor
-                Objects[touch] = "SchemeColor"
-                touch.ImageRectOffset = Vector2.new(84, 204)
-                touch.ImageRectSize = Vector2.new(36, 36)
+                touch.Image = iconAsset or "rbxassetid://10350438692" -- Defaults to Rush placeholder
+                touch.ScaleType = Enum.ScaleType.Fit
 
                 btnInfo.Name = "btnInfo"
                 btnInfo.Parent = buttonElement
                 btnInfo.BackgroundTransparency = 1.000
-                btnInfo.Position = UDim2.new(0.096, 0, 0.27, 0)
-                btnInfo.Size = UDim2.new(0, 314, 0, 14)
+                btnInfo.Position = UDim2.new(0, 35, 0, 0)
+                btnInfo.Size = UDim2.new(1, -40, 1, 0)
                 btnInfo.Font = Enum.Font.Gotham
                 btnInfo.Text = bname
                 btnInfo.TextColor3 = themeList.TextColor
@@ -562,25 +588,24 @@ function Kavo.CreateLib(kavName, themeList)
                 btn.MouseButton1Click:Connect(function()
                     if not focusing then
                         callback()
-                        -- Swift macOS button pulse
                         Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.SchemeColor.r * 255, themeList.SchemeColor.g * 255, themeList.SchemeColor.b * 255)}, 0.1)
                         Utility:TweenObject(btnInfo, {TextColor3 = Color3.fromRGB(30, 30, 32)}, 0.1)
                         task.wait(0.1)
-                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.3)
-                        Utility:TweenObject(btnInfo, {TextColor3 = themeList.TextColor}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.25)
+                        Utility:TweenObject(btnInfo, {TextColor3 = themeList.TextColor}, 0.25)
                     end
                 end)
                 
                 local hovering = false
                 btn.MouseEnter:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.25)
                         hovering = true
                     end
                 end)
                 btn.MouseLeave:Connect(function()
                     if not focusing then 
-                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.25)
                         hovering = false
                     end
                 end)
@@ -605,7 +630,7 @@ function Kavo.CreateLib(kavName, themeList)
                 textboxElement.Parent = sectionInners
                 textboxElement.BackgroundColor3 = themeList.ElementColor
                 textboxElement.ClipsDescendants = true
-                textboxElement.Size = UDim2.new(0, 345, 0, 32)
+                textboxElement.Size = UDim2.new(1, 0, 0, 32)
                 textboxElement.AutoButtonColor = false
                 textboxElement.Text = ""
                 
@@ -631,8 +656,8 @@ function Kavo.CreateLib(kavName, themeList)
                 TextBox.BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 - 10, themeList.ElementColor.g * 255 - 10, themeList.ElementColor.b * 255 - 10)
                 TextBox.BorderSizePixel = 0
                 TextBox.ClipsDescendants = true
-                TextBox.Position = UDim2.new(0.488, 0, 0.2, 0)
-                TextBox.Size = UDim2.new(0, 150, 0, 20)
+                TextBox.Position = UDim2.new(0.55, 0, 0.2, 0)
+                TextBox.Size = UDim2.new(0.4, 0, 0, 20)
                 TextBox.Font = Enum.Font.Gotham
                 TextBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
                 TextBox.PlaceholderText = "Type here..."
@@ -651,8 +676,8 @@ function Kavo.CreateLib(kavName, themeList)
                 togName.Name = "togName"
                 togName.Parent = textboxElement
                 togName.BackgroundTransparency = 1.000
-                togName.Position = UDim2.new(0.096, 0, 0.27, 0)
-                togName.Size = UDim2.new(0, 138, 0, 14)
+                togName.Position = UDim2.new(0, 35, 0, 0)
+                togName.Size = UDim2.new(0.5, 0, 1, 0)
                 togName.Font = Enum.Font.Gotham
                 togName.Text = tname
                 togName.TextColor3 = themeList.TextColor
@@ -667,19 +692,18 @@ function Kavo.CreateLib(kavName, themeList)
                 local hovering = false
                 btn.MouseEnter:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.25)
                         hovering = true
                     end 
                 end)
 
                 btn.MouseLeave:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.25)
                         hovering = false
                     end
                 end)
 
-                -- BUG FIX: Removed TextBox.Text = "" so user inputs stay visible
                 TextBox.FocusLost:Connect(function(EnterPressed)
                     if EnterPressed then
                         callback(TextBox.Text)
@@ -704,7 +728,7 @@ function Kavo.CreateLib(kavName, themeList)
                 toggleElement.Parent = sectionInners
                 toggleElement.BackgroundColor3 = themeList.ElementColor
                 toggleElement.ClipsDescendants = true
-                toggleElement.Size = UDim2.new(0, 345, 0, 32)
+                toggleElement.Size = UDim2.new(1, 0, 0, 32)
                 toggleElement.AutoButtonColor = false
                 toggleElement.Text = ""
 
@@ -740,8 +764,8 @@ function Kavo.CreateLib(kavName, themeList)
                 togName.Name = "togName"
                 togName.Parent = toggleElement
                 togName.BackgroundTransparency = 1.000
-                togName.Position = UDim2.new(0.096, 0, 0.27, 0)
-                togName.Size = UDim2.new(0, 288, 0, 14)
+                togName.Position = UDim2.new(0, 35, 0, 0)
+                togName.Size = UDim2.new(1, -40, 1, 0)
                 togName.Font = Enum.Font.Gotham
                 togName.Text = tname
                 togName.TextColor3 = themeList.TextColor
@@ -758,9 +782,9 @@ function Kavo.CreateLib(kavName, themeList)
                     if not focusing then
                         toggled = not toggled
                         if toggled then
-                            Utility:TweenObject(img, {ImageTransparency = 0}, 0.3)
+                            Utility:TweenObject(img, {ImageTransparency = 0}, 0.25)
                         else
-                            Utility:TweenObject(img, {ImageTransparency = 1}, 0.3)
+                            Utility:TweenObject(img, {ImageTransparency = 1}, 0.25)
                         end
                         pcall(callback, toggled)
                     end
@@ -769,13 +793,13 @@ function Kavo.CreateLib(kavName, themeList)
                 local hovering = false
                 btn.MouseEnter:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.25)
                         hovering = true
                     end 
                 end)
                 btn.MouseLeave:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.25)
                         hovering = false
                     end
                 end)
@@ -785,11 +809,11 @@ function Kavo.CreateLib(kavName, themeList)
                     if newText ~= nil then togName.Text = newText end
                     if isTogOn then
                         toggled = true
-                        Utility:TweenObject(img, {ImageTransparency = 0}, 0.3)
+                        Utility:TweenObject(img, {ImageTransparency = 0}, 0.25)
                         pcall(callback, toggled)
                     else
                         toggled = false
-                        Utility:TweenObject(img, {ImageTransparency = 1}, 0.3)
+                        Utility:TweenObject(img, {ImageTransparency = 1}, 0.25)
                         pcall(callback, toggled)
                     end
                 end
@@ -817,7 +841,7 @@ function Kavo.CreateLib(kavName, themeList)
                 sliderElement.Parent = sectionInners
                 sliderElement.BackgroundColor3 = themeList.ElementColor
                 sliderElement.ClipsDescendants = true
-                sliderElement.Size = UDim2.new(0, 345, 0, 32)
+                sliderElement.Size = UDim2.new(1, 0, 0, 32)
                 sliderElement.AutoButtonColor = false
                 sliderElement.Text = ""
                 
@@ -832,8 +856,8 @@ function Kavo.CreateLib(kavName, themeList)
                 togName.Name = "togName"
                 togName.Parent = sliderElement
                 togName.BackgroundTransparency = 1.000
-                togName.Position = UDim2.new(0.096, 0, 0.27, 0)
-                togName.Size = UDim2.new(0, 138, 0, 14)
+                togName.Position = UDim2.new(0, 35, 0, 0)
+                togName.Size = UDim2.new(0.4, 0, 1, 0)
                 togName.Font = Enum.Font.Gotham
                 togName.Text = slidInf
                 togName.TextColor3 = themeList.TextColor
@@ -844,8 +868,8 @@ function Kavo.CreateLib(kavName, themeList)
                 sliderBtn.Parent = sliderElement
                 sliderBtn.BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 15, themeList.ElementColor.g * 255 + 15, themeList.ElementColor.b * 255  + 15)
                 sliderBtn.BorderSizePixel = 0
-                sliderBtn.Position = UDim2.new(0.488, 0, 0.45, 0)
-                sliderBtn.Size = UDim2.new(0, 149, 0, 4)
+                sliderBtn.Position = UDim2.new(0.45, 0, 0.45, 0)
+                sliderBtn.Size = UDim2.new(0.4, 0, 0, 4)
                 sliderBtn.AutoButtonColor = false
                 sliderBtn.Text = ""
                 
@@ -883,8 +907,8 @@ function Kavo.CreateLib(kavName, themeList)
                 val.Name = "val"
                 val.Parent = sliderElement
                 val.BackgroundTransparency = 1.000
-                val.Position = UDim2.new(0.35, 0, 0.27, 0)
-                val.Size = UDim2.new(0, 41, 0, 14)
+                val.Position = UDim2.new(0.86, 0, 0, 0)
+                val.Size = UDim2.new(0.12, 0, 1, 0)
                 val.Font = Enum.Font.Gotham
                 val.Text = minvalue
                 val.TextColor3 = themeList.TextColor
@@ -902,13 +926,13 @@ function Kavo.CreateLib(kavName, themeList)
                 local hovering = false
                 btn.MouseEnter:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.25)
                         hovering = true
                     end 
                 end)
                 btn.MouseLeave:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.25)
                         hovering = false
                     end
                 end)        
@@ -920,24 +944,24 @@ function Kavo.CreateLib(kavName, themeList)
                 sliderBtn.MouseButton1Down:Connect(function()
                     if not focusing then
                         Utility:TweenObject(val, {TextTransparency = 0}, 0.3)
-                        Value = math.floor((((tonumber(maxvalue) - tonumber(minvalue)) / 149) * sliderDrag.AbsoluteSize.X) + tonumber(minvalue)) or 0
+                        Value = math.floor((((tonumber(maxvalue) - tonumber(minvalue)) / sliderBtn.AbsoluteSize.X) * sliderDrag.AbsoluteSize.X) + tonumber(minvalue)) or 0
                         pcall(function() callback(Value) end)
-                        sliderDrag:TweenSize(UDim2.new(0, math.clamp(mouse.X - sliderDrag.AbsolutePosition.X, 0, 149), 1, 0), "InOut", "Quint", 0.3, true)
+                        sliderDrag:TweenSize(UDim2.new(0, math.clamp(mouse.X - sliderDrag.AbsolutePosition.X, 0, sliderBtn.AbsoluteSize.X), 1, 0), "InOut", "Quint", 0.3, true)
                         
                         moveconnection = mouse.Move:Connect(function()
                             val.Text = Value
-                            Value = math.floor((((tonumber(maxvalue) - tonumber(minvalue)) / 149) * sliderDrag.AbsoluteSize.X) + tonumber(minvalue))
+                            Value = math.floor((((tonumber(maxvalue) - tonumber(minvalue)) / sliderBtn.AbsoluteSize.X) * sliderDrag.AbsoluteSize.X) + tonumber(minvalue))
                             pcall(function() callback(Value) end)
-                            sliderDrag:TweenSize(UDim2.new(0, math.clamp(mouse.X - sliderDrag.AbsolutePosition.X, 0, 149), 1, 0), "InOut", "Quint", 0.3, true)
+                            sliderDrag:TweenSize(UDim2.new(0, math.clamp(mouse.X - sliderDrag.AbsolutePosition.X, 0, sliderBtn.AbsoluteSize.X), 1, 0), "InOut", "Quint", 0.3, true)
                         end)
                         
                         releaseconnection = uis.InputEnded:Connect(function(Mouse)
                             if Mouse.UserInputType == Enum.UserInputType.MouseButton1 then
-                                Value = math.floor((((tonumber(maxvalue) - tonumber(minvalue)) / 149) * sliderDrag.AbsoluteSize.X) + tonumber(minvalue))
+                                Value = math.floor((((tonumber(maxvalue) - tonumber(minvalue)) / sliderBtn.AbsoluteSize.X) * sliderDrag.AbsoluteSize.X) + tonumber(minvalue))
                                 pcall(function() callback(Value) end)
                                 val.Text = Value
                                 Utility:TweenObject(val, {TextTransparency = 1}, 0.3)
-                                sliderDrag:TweenSize(UDim2.new(0, math.clamp(mouse.X - sliderDrag.AbsolutePosition.X, 0, 149), 1, 0), "InOut", "Quint", 0.3, true)
+                                sliderDrag:TweenSize(UDim2.new(0, math.clamp(mouse.X - sliderDrag.AbsolutePosition.X, 0, sliderBtn.AbsoluteSize.X), 1, 0), "InOut", "Quint", 0.3, true)
                                 moveconnection:Disconnect()
                                 releaseconnection:Disconnect()
                             end
@@ -968,14 +992,14 @@ function Kavo.CreateLib(kavName, themeList)
                 dropFrame.Parent = sectionInners
                 dropFrame.BackgroundColor3 = themeList.Background
                 dropFrame.BorderSizePixel = 0
-                dropFrame.Size = UDim2.new(0, 345, 0, 32)
+                dropFrame.Size = UDim2.new(1, 0, 0, 32)
                 dropFrame.ClipsDescendants = true
                 
                 local btn = dropOpen
                 dropOpen.Name = "dropOpen"
                 dropOpen.Parent = dropFrame
                 dropOpen.BackgroundColor3 = themeList.ElementColor
-                dropOpen.Size = UDim2.new(0, 345, 0, 32)
+                dropOpen.Size = UDim2.new(1, 0, 0, 32)
                 dropOpen.AutoButtonColor = false
                 dropOpen.Text = ""
                 dropOpen.ClipsDescendants = true
@@ -989,13 +1013,13 @@ function Kavo.CreateLib(kavName, themeList)
                     if not focusing then
                         if opened then
                             opened = false
-                            dropFrame:TweenSize(UDim2.new(0, 345, 0, 32), "InOut", "Quint", 0.3, true)
+                            dropFrame:TweenSize(UDim2.new(1, 0, 0, 32), "InOut", "Quint", 0.25, true)
                             task.wait(0.1)
                             updateSectionFrame()
                             UpdateSize()
                         else
                             opened = true
-                            dropFrame:TweenSize(UDim2.new(0, 345, 0, UIListLayout.AbsoluteContentSize.Y), "InOut", "Quint", 0.3, true)
+                            dropFrame:TweenSize(UDim2.new(1, 0, 0, UIListLayout.AbsoluteContentSize.Y), "InOut", "Quint", 0.25, true)
                             task.wait(0.1)
                             updateSectionFrame()
                             UpdateSize()
@@ -1016,8 +1040,8 @@ function Kavo.CreateLib(kavName, themeList)
                 itemTextbox.Name = "itemTextbox"
                 itemTextbox.Parent = dropOpen
                 itemTextbox.BackgroundTransparency = 1.000
-                itemTextbox.Position = UDim2.new(0.097, 0, 0.27, 0)
-                itemTextbox.Size = UDim2.new(0, 138, 0, 14)
+                itemTextbox.Position = UDim2.new(0, 35, 0, 0)
+                itemTextbox.Size = UDim2.new(1, -40, 1, 0)
                 itemTextbox.Font = Enum.Font.Gotham
                 itemTextbox.Text = dropname
                 itemTextbox.TextColor3 = themeList.TextColor
@@ -1037,13 +1061,13 @@ function Kavo.CreateLib(kavName, themeList)
                 local hovering = false
                 btn.MouseEnter:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.25)
                         hovering = true
                     end 
                 end)
                 btn.MouseLeave:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.3)
+                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.25)
                         hovering = false
                     end
                 end)        
@@ -1057,7 +1081,7 @@ function Kavo.CreateLib(kavName, themeList)
                     optionSelect.Parent = dropFrame
                     optionSelect.BackgroundColor3 = themeList.ElementColor
                     optionSelect.Position = UDim2.new(0, 0, 0, 0)
-                    optionSelect.Size = UDim2.new(0, 345, 0, 32)
+                    optionSelect.Size = UDim2.new(1, 0, 0, 32)
                     optionSelect.AutoButtonColor = false
                     optionSelect.Font = Enum.Font.Gotham
                     optionSelect.Text = "  "..v
@@ -1075,7 +1099,7 @@ function Kavo.CreateLib(kavName, themeList)
                             opened = false
                             callback(v)
                             itemTextbox.Text = v
-                            dropFrame:TweenSize(UDim2.new(0, 345, 0, 32), 'InOut', 'Quint', 0.3, true)
+                            dropFrame:TweenSize(UDim2.new(1, 0, 0, 32), 'InOut', 'Quint', 0.25, true)
                             task.wait(0.1)
                             updateSectionFrame()
                             UpdateSize()
@@ -1088,13 +1112,13 @@ function Kavo.CreateLib(kavName, themeList)
                     local oHover = false
                     optionSelect.MouseEnter:Connect(function()
                         if not focusing then
-                            Utility:TweenObject(optionSelect, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10), TextColor3 = Color3.fromRGB(255, 255, 255)}, 0.3)
+                            Utility:TweenObject(optionSelect, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10), TextColor3 = Color3.fromRGB(255, 255, 255)}, 0.25)
                             oHover = true
                         end 
                     end)
                     optionSelect.MouseLeave:Connect(function()
                         if not focusing then
-                            Utility:TweenObject(optionSelect, {BackgroundColor3 = themeList.ElementColor, TextColor3 = Color3.fromRGB(180, 180, 180)}, 0.3)
+                            Utility:TweenObject(optionSelect, {BackgroundColor3 = themeList.ElementColor, TextColor3 = Color3.fromRGB(180, 180, 180)}, 0.25)
                             oHover = false
                         end
                     end)   
@@ -1115,7 +1139,7 @@ function Kavo.CreateLib(kavName, themeList)
                         optionSelect.Name = "optionSelect"
                         optionSelect.Parent = dropFrame
                         optionSelect.BackgroundColor3 = themeList.ElementColor
-                        optionSelect.Size = UDim2.new(0, 345, 0, 32)
+                        optionSelect.Size = UDim2.new(1, 0, 0, 32)
                         optionSelect.AutoButtonColor = false
                         optionSelect.Font = Enum.Font.Gotham
                         optionSelect.Text = "  "..v
@@ -1136,7 +1160,7 @@ function Kavo.CreateLib(kavName, themeList)
                                 opened = false
                                 callback(v)
                                 itemTextbox.Text = v
-                                dropFrame:TweenSize(UDim2.new(0, 345, 0, 32), 'InOut', 'Quint', 0.3, true)
+                                dropFrame:TweenSize(UDim2.new(1, 0, 0, 32), 'InOut', 'Quint', 0.25, true)
                                 task.wait(0.1)
                                 updateSectionFrame()
                                 UpdateSize()       
@@ -1148,24 +1172,24 @@ function Kavo.CreateLib(kavName, themeList)
                         local oHover = false
                         optionSelect.MouseEnter:Connect(function()
                             if not focusing then
-                                Utility:TweenObject(optionSelect, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10), TextColor3 = Color3.fromRGB(255, 255, 255)}, 0.3)
+                                Utility:TweenObject(optionSelect, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10), TextColor3 = Color3.fromRGB(255, 255, 255)}, 0.25)
                                 oHover = true
                             end 
                         end)
                         optionSelect.MouseLeave:Connect(function()
                             if not focusing then
-                                Utility:TweenObject(optionSelect, {BackgroundColor3 = themeList.ElementColor, TextColor3 = Color3.fromRGB(180, 180, 180)}, 0.3)
+                                Utility:TweenObject(optionSelect, {BackgroundColor3 = themeList.ElementColor, TextColor3 = Color3.fromRGB(180, 180, 180)}, 0.25)
                                 oHover = false
                             end
                         end)   
                     end
                     if opened then 
-                        dropFrame:TweenSize(UDim2.new(0, 345, 0, UIListLayout.AbsoluteContentSize.Y), "InOut", "Quint", 0.3, true)
+                        dropFrame:TweenSize(UDim2.new(1, 0, 0, UIListLayout.AbsoluteContentSize.Y), "InOut", "Quint", 0.25, true)
                         task.wait(0.1)
                         updateSectionFrame()
                         UpdateSize()
                     else
-                        dropFrame:TweenSize(UDim2.new(0, 345, 0, 32), "InOut", "Quint", 0.3, true)
+                        dropFrame:TweenSize(UDim2.new(1, 0, 0, 32), "InOut", "Quint", 0.25, true)
                         task.wait(0.1)
                         updateSectionFrame()
                         UpdateSize()
@@ -1191,7 +1215,7 @@ function Kavo.CreateLib(kavName, themeList)
                 keybindElement.Parent = sectionInners
                 keybindElement.BackgroundColor3 = themeList.ElementColor
                 keybindElement.ClipsDescendants = true
-                keybindElement.Size = UDim2.new(0, 345, 0, 32)
+                keybindElement.Size = UDim2.new(1, 0, 0, 32)
                 keybindElement.AutoButtonColor = false
                 keybindElement.Text = ""
                 
@@ -1235,8 +1259,8 @@ function Kavo.CreateLib(kavName, themeList)
                 togName.Name = "togName"
                 togName.Parent = keybindElement
                 togName.BackgroundTransparency = 1.000
-                togName.Position = UDim2.new(0.096, 0, 0.27, 0)
-                togName.Size = UDim2.new(0, 222, 0, 14)
+                togName.Position = UDim2.new(0, 35, 0, 0)
+                togName.Size = UDim2.new(0.5, 0, 1, 0)
                 togName.Font = Enum.Font.Gotham
                 togName.Text = keytext
                 togName.TextColor3 = themeList.TextColor
@@ -1246,8 +1270,8 @@ function Kavo.CreateLib(kavName, themeList)
                 togName_2.Name = "togName"
                 togName_2.Parent = keybindElement
                 togName_2.BackgroundTransparency = 1.000
-                togName_2.Position = UDim2.new(0.727, 0, 0.27, 0)
-                togName_2.Size = UDim2.new(0, 70, 0, 14)
+                togName_2.Position = UDim2.new(0.5, 0, 0, 0)
+                togName_2.Size = UDim2.new(0.48, 0, 1, 0)
                 togName_2.Font = Enum.Font.GothamSemibold
                 togName_2.Text = oldKey
                 togName_2.TextColor3 = themeList.SchemeColor
@@ -1307,20 +1331,20 @@ function Kavo.CreateLib(kavName, themeList)
                 colorElement.BackgroundColor3 = themeList.ElementColor
                 colorElement.BackgroundTransparency = 1.000
                 colorElement.ClipsDescendants = true
-                colorElement.Size = UDim2.new(0, 345, 0, 32)
+                colorElement.Size = UDim2.new(1, 0, 0, 32)
                 colorElement.AutoButtonColor = false
                 colorElement.Text = ""
                 colorElement.MouseButton1Click:Connect(function()
                     if not focusing then
                         if colorOpened then
                             colorOpened = false
-                            colorElement:TweenSize(UDim2.new(0, 345, 0, 32), "InOut", "Quint", 0.3, true)
+                            colorElement:TweenSize(UDim2.new(1, 0, 0, 32), "InOut", "Quint", 0.3, true)
                             task.wait(0.1)
                             updateSectionFrame()
                             UpdateSize()
                         else
                             colorOpened = true
-                            colorElement:TweenSize(UDim2.new(0, 345, 0, 141), "InOut", "Quint", 0.3, true)
+                            colorElement:TweenSize(UDim2.new(1, 0, 0, 141), "InOut", "Quint", 0.3, true)
                             task.wait(0.1)
                             updateSectionFrame()
                             UpdateSize()
@@ -1333,7 +1357,7 @@ function Kavo.CreateLib(kavName, themeList)
                 colorHeader.Name = "colorHeader"
                 colorHeader.Parent = colorElement
                 colorHeader.BackgroundColor3 = themeList.ElementColor
-                colorHeader.Size = UDim2.new(0, 345, 0, 32)
+                colorHeader.Size = UDim2.new(1, 0, 0, 32)
                 colorHeader.ClipsDescendants = true
                 
                 local headerStroke = Instance.new("UIStroke", colorHeader)
@@ -1357,8 +1381,8 @@ function Kavo.CreateLib(kavName, themeList)
                 togName.Name = "togName"
                 togName.Parent = colorHeader
                 togName.BackgroundTransparency = 1.000
-                togName.Position = UDim2.new(0.096, 0, 0.27, 0)
-                togName.Size = UDim2.new(0, 288, 0, 14)
+                togName.Position = UDim2.new(0, 35, 0, 0)
+                togName.Size = UDim2.new(0.5, 0, 1, 0)
                 togName.Font = Enum.Font.Gotham
                 togName.Text = colText
                 togName.TextColor3 = themeList.TextColor
@@ -1368,8 +1392,8 @@ function Kavo.CreateLib(kavName, themeList)
                 colorCurrent.Name = "colorCurrent"
                 colorCurrent.Parent = colorHeader
                 colorCurrent.BackgroundColor3 = defcolor
-                colorCurrent.Position = UDim2.new(0.79, 0, 0.2, 0)
-                colorCurrent.Size = UDim2.new(0, 42, 0, 18)
+                colorCurrent.Position = UDim2.new(0.85, 0, 0.2, 0)
+                colorCurrent.Size = UDim2.new(0.1, 0, 0.6, 0)
 
                 UICorner_3.CornerRadius = UDim.new(0, 4)
                 UICorner_3.Parent = colorCurrent
@@ -1381,7 +1405,7 @@ function Kavo.CreateLib(kavName, themeList)
                 colorInners.Name = "colorInners"
                 colorInners.Parent = colorElement
                 colorInners.BackgroundColor3 = themeList.ElementColor
-                colorInners.Size = UDim2.new(0, 345, 0, 105)
+                colorInners.Size = UDim2.new(1, 0, 0, 105)
 
                 UICorner_4.CornerRadius = UDim.new(0, 6)
                 UICorner_4.Parent = colorInners
@@ -1390,7 +1414,7 @@ function Kavo.CreateLib(kavName, themeList)
                 rgb.Parent = colorInners
                 rgb.BackgroundTransparency = 1.000
                 rgb.Position = UDim2.new(0.02, 0, 0.05, 0)
-                rgb.Size = UDim2.new(0, 211, 0, 93)
+                rgb.Size = UDim2.new(0.6, 0, 0.8, 0)
                 rgb.Image = "http://www.roblox.com/asset/?id=6523286724"
 
                 UICorner_5.CornerRadius = UDim.new(0, 4)
@@ -1409,7 +1433,7 @@ function Kavo.CreateLib(kavName, themeList)
                 darkness.Parent = colorInners
                 darkness.BackgroundTransparency = 1.000
                 darkness.Position = UDim2.new(0.65, 0, 0.05, 0)
-                darkness.Size = UDim2.new(0, 18, 0, 93)
+                darkness.Size = UDim2.new(0.05, 0, 0.8, 0)
                 darkness.Image = "http://www.roblox.com/asset/?id=6523291212"
 
                 UICorner_6.CornerRadius = UDim.new(0, 4)
@@ -1455,8 +1479,8 @@ function Kavo.CreateLib(kavName, themeList)
                 togName_2.Name = "togName"
                 togName_2.Parent = colorInners
                 togName_2.BackgroundTransparency = 1.000
-                togName_2.Position = UDim2.new(0.8, 0, 0.1, 0)
-                togName_2.Size = UDim2.new(0, 278, 0, 14)
+                togName_2.Position = UDim2.new(0.82, 0, 0.1, 0)
+                togName_2.Size = UDim2.new(0.18, 0, 0.1, 0)
                 togName_2.Font = Enum.Font.Gotham
                 togName_2.Text = "Rainbow"
                 togName_2.TextColor3 = themeList.TextColor
@@ -1591,7 +1615,7 @@ function Kavo.CreateLib(kavName, themeList)
                 label.BackgroundTransparency = 0.8
                 label.BorderSizePixel = 0
                 label.ClipsDescendants = true
-                label.Size = UDim2.new(0, 345, 0, 32)
+                label.Size = UDim2.new(1, 0, 0, 32)
                 label.Font = Enum.Font.GothamSemibold
                 label.Text = "  "..title
                 label.RichText = true
