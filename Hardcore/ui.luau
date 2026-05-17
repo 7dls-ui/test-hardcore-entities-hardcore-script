@@ -1,5 +1,5 @@
---// macOS Optimized Kavo UI Library Rewrite (V3 - True Fullscreen, Icon Support, Mouse Fixes)
---// Rebuilt with Quint/Out animations, SF Pro (Gotham) typography, and Apple window controls.
+--// macOS Optimized Kavo UI Library Rewrite (V4 - CanvasGroup Fades & Scaling)
+--// Rebuilt with Quint/Out animations, SF Pro (Gotham) typography, Apple window controls, and true Window Scaling.
 
 local Kavo = {}
 
@@ -49,12 +49,13 @@ function Utility:TweenObject(obj, properties, duration, ...)
     tween:Create(obj, tweeninfo(duration or 0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), properties):Play()
 end
 
+-- Sleek "Graphite" macOS style
 local themes = {
-    SchemeColor = Color3.fromRGB(150, 150, 150),
-    Background = Color3.fromRGB(30, 30, 32),
-    Header = Color3.fromRGB(45, 45, 48),
+    SchemeColor = Color3.fromRGB(150, 150, 150), 
+    Background = Color3.fromRGB(30, 30, 32), 
+    Header = Color3.fromRGB(45, 45, 48), 
     TextColor = Color3.fromRGB(240, 240, 240),
-    ElementColor = Color3.fromRGB(55, 55, 58)
+    ElementColor = Color3.fromRGB(55, 55, 58) 
 }
 
 local themeStyles = {
@@ -97,7 +98,27 @@ local activeGuiName = ""
 function Kavo:ToggleUI()
     if game.CoreGui:FindFirstChild(activeGuiName) then
         local gui = game.CoreGui[activeGuiName]
-        gui.Enabled = not gui.Enabled
+        local mainFrame = gui:FindFirstChild("Main")
+        local scale = mainFrame and mainFrame:FindFirstChildOfClass("UIScale")
+        
+        if gui.Enabled then
+            -- Smooth Close Animation
+            if mainFrame and scale then
+                game.TweenService:Create(mainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 1 }):Play()
+                game.TweenService:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 0.85 }):Play()
+                task.wait(0.25)
+            end
+            gui.Enabled = false
+        else
+            -- Smooth Open Animation
+            gui.Enabled = true
+            if mainFrame and scale then
+                mainFrame.GroupTransparency = 1
+                scale.Scale = 0.85
+                game.TweenService:Create(mainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 0 }):Play()
+                game.TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+            end
+        end
     end
 end
 
@@ -125,7 +146,9 @@ function Kavo.CreateLib(kavName, themeList)
     end
     
     local ScreenGui = Instance.new("ScreenGui")
-    local Main = Instance.new("Frame")
+    -- Upgraded to CanvasGroup for true macOS window-level transparency fading
+    local Main = Instance.new("CanvasGroup")
+    local uiScale = Instance.new("UIScale")
     local MainCorner = Instance.new("UICorner")
     local MainHeader = Instance.new("Frame")
     local headerCover = Instance.new("UICorner")
@@ -177,6 +200,8 @@ function Kavo.CreateLib(kavName, themeList)
     Main.ClipsDescendants = true
     Main.Position = UDim2.new(0.336, 0, 0.275, 0)
     Main.Size = UDim2.new(0, 525, 0, 318)
+    
+    uiScale.Parent = Main
 
     MainCorner.CornerRadius = UDim.new(0, 12)
     MainCorner.Name = "MainCorner"
@@ -257,15 +282,10 @@ function Kavo.CreateLib(kavName, themeList)
     local preMaxSize = nil
     
     closeBtn.MouseButton1Click:Connect(function()
-        local originalPos = Main.Position
-        game.TweenService:Create(Main, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 0, 0, 0),
-            Position = UDim2.new(0, Main.AbsolutePosition.X + (Main.AbsoluteSize.X / 2), 0, Main.AbsolutePosition.Y + (Main.AbsoluteSize.Y / 2))
-        }):Play()
+        game.TweenService:Create(Main, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 1 }):Play()
+        game.TweenService:Create(uiScale, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 0.85 }):Play()
         task.wait(0.25)
         ScreenGui.Enabled = false
-        Main.Size = UDim2.new(0, 525, 0, minimized and 38 or 318)
-        Main.Position = originalPos
     end)
     
     minBtn.MouseButton1Click:Connect(function()
@@ -528,7 +548,6 @@ function Kavo.CreateLib(kavName, themeList)
             UpdateSize()
             
             local Elements = {}
-            -- Added explicit Icon Support
             function Elements:NewButton(bname, tipINf, callback, iconAsset)
                 local ButtonFunction = {}
                 tipINf = tipINf or "Tip: Clicking this nothing will happen!"
@@ -565,7 +584,7 @@ function Kavo.CreateLib(kavName, themeList)
                 touch.BackgroundTransparency = 1.000
                 touch.Position = UDim2.new(0.02, 0, 0.15, 0)
                 touch.Size = UDim2.new(0, 20, 0, 20)
-                touch.Image = iconAsset or "rbxassetid://10350438692" -- Defaults to Rush placeholder
+                touch.Image = iconAsset or "rbxthumb://type=Asset&id=10350438692&w=150&h=150"
                 touch.ScaleType = Enum.ScaleType.Fit
 
                 btnInfo.Name = "btnInfo"
@@ -782,9 +801,9 @@ function Kavo.CreateLib(kavName, themeList)
                     if not focusing then
                         toggled = not toggled
                         if toggled then
-                            Utility:TweenObject(img, {ImageTransparency = 0}, 0.25)
+                            Utility:TweenObject(img, {ImageTransparency = 0}, 0.3)
                         else
-                            Utility:TweenObject(img, {ImageTransparency = 1}, 0.25)
+                            Utility:TweenObject(img, {ImageTransparency = 1}, 0.3)
                         end
                         pcall(callback, toggled)
                     end
@@ -793,13 +812,13 @@ function Kavo.CreateLib(kavName, themeList)
                 local hovering = false
                 btn.MouseEnter:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.25)
+                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.3)
                         hovering = true
                     end 
                 end)
                 btn.MouseLeave:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.25)
+                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.3)
                         hovering = false
                     end
                 end)
@@ -809,11 +828,11 @@ function Kavo.CreateLib(kavName, themeList)
                     if newText ~= nil then togName.Text = newText end
                     if isTogOn then
                         toggled = true
-                        Utility:TweenObject(img, {ImageTransparency = 0}, 0.25)
+                        Utility:TweenObject(img, {ImageTransparency = 0}, 0.3)
                         pcall(callback, toggled)
                     else
                         toggled = false
-                        Utility:TweenObject(img, {ImageTransparency = 1}, 0.25)
+                        Utility:TweenObject(img, {ImageTransparency = 1}, 0.3)
                         pcall(callback, toggled)
                     end
                 end
@@ -926,13 +945,13 @@ function Kavo.CreateLib(kavName, themeList)
                 local hovering = false
                 btn.MouseEnter:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.25)
+                        Utility:TweenObject(btn, {BackgroundColor3 = Color3.fromRGB(themeList.ElementColor.r * 255 + 10, themeList.ElementColor.g * 255 + 10, themeList.ElementColor.b * 255 + 10)}, 0.3)
                         hovering = true
                     end 
                 end)
                 btn.MouseLeave:Connect(function()
                     if not focusing then
-                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.25)
+                        Utility:TweenObject(btn, {BackgroundColor3 = themeList.ElementColor}, 0.3)
                         hovering = false
                     end
                 end)        
@@ -1646,4 +1665,20 @@ function Kavo.CreateLib(kavName, themeList)
     end  
     return Tabs
 end
+
+-- Inject UI Launch animation immediately upon return
+task.spawn(function()
+    if game.CoreGui:FindFirstChild(activeGuiName) then
+        local gui = game.CoreGui[activeGuiName]
+        local mainFrame = gui:FindFirstChild("Main")
+        local scale = mainFrame and mainFrame:FindFirstChildOfClass("UIScale")
+        if mainFrame and scale then
+            mainFrame.GroupTransparency = 1
+            scale.Scale = 0.85
+            game.TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 0 }):Play()
+            game.TweenService:Create(scale, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+        end
+    end
+end)
+
 return Kavo
