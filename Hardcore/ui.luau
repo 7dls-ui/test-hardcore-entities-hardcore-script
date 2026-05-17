@@ -1,6 +1,5 @@
---// Custom "macOS / mspaint" Style UI Library
+--// Custom "macOS / mspaint" Style UI Library (V5 - Traffic Lights Restored)
 --// Rebuilt with native Roblox Frames, Exponential Center-Zooming, and macOS Pill Toggles.
---// Drop-in replacement for Kavo.
 
 local Kavo = {}
 
@@ -123,7 +122,8 @@ function Kavo.CreateLib(kavName, themeName)
     local uiScale = Instance.new("UIScale", Main)
     uiScale.Scale = 0.85
     
-    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+    local MainCorner = Instance.new("UICorner", Main)
+    MainCorner.CornerRadius = UDim.new(0, 10)
     
     local mainStroke = Instance.new("UIStroke", Main)
     mainStroke.Color = Color3.fromRGB(60, 60, 65)
@@ -148,10 +148,79 @@ function Kavo.CreateLib(kavName, themeName)
     DragBar.BackgroundTransparency = 1
     MakeDraggable(DragBar, Main)
 
+    -- ==========================================
+    -- RESTORED MACOS TRAFFIC LIGHTS
+    -- ==========================================
+    local TrafficLights = Instance.new("Frame", Sidebar)
+    TrafficLights.BackgroundTransparency = 1
+    TrafficLights.Position = UDim2.new(0, 12, 0, 14)
+    TrafficLights.Size = UDim2.new(0, 52, 0, 12)
+    
+    local closeBtn = Instance.new("TextButton", TrafficLights)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 95, 86)
+    closeBtn.Size = UDim2.new(0, 12, 0, 12)
+    closeBtn.Text = ""
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(1, 0)
+    
+    local minBtn = Instance.new("TextButton", TrafficLights)
+    minBtn.BackgroundColor3 = Color3.fromRGB(255, 189, 46)
+    minBtn.Position = UDim2.new(0, 20, 0, 0)
+    minBtn.Size = UDim2.new(0, 12, 0, 12)
+    minBtn.Text = ""
+    Instance.new("UICorner", minBtn).CornerRadius = UDim.new(1, 0)
+    
+    local maxBtn = Instance.new("TextButton", TrafficLights)
+    maxBtn.BackgroundColor3 = Color3.fromRGB(39, 201, 63)
+    maxBtn.Position = UDim2.new(0, 40, 0, 0)
+    maxBtn.Size = UDim2.new(0, 12, 0, 12)
+    maxBtn.Text = ""
+    Instance.new("UICorner", maxBtn).CornerRadius = UDim.new(1, 0)
+
+    -- Traffic Light Logic
+    closeBtn.MouseButton1Click:Connect(function()
+        LibOpen = false
+        tween(Main, {GroupTransparency = 1})
+        local t = tween(uiScale, {Scale = 0.85})
+        t.Completed:Connect(function()
+            if not LibOpen then ScreenGui.Enabled = false end
+        end)
+    end)
+
+    local minimized = false
+    local preMinSize = Main.Size
+    minBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        if minimized then
+            preMinSize = Main.Size
+            -- Shrink to a tiny top-left pill
+            tween(Main, {Size = UDim2.new(0, 160, 0, 40)})
+        else
+            -- Restore original size
+            tween(Main, {Size = preMinSize})
+        end
+    end)
+
+    local maximized = false
+    local preMaxSize = Main.Size
+    local preMaxPos = Main.Position
+    maxBtn.MouseButton1Click:Connect(function()
+        maximized = not maximized
+        if maximized then
+            preMaxSize = Main.Size
+            preMaxPos = Main.Position
+            tween(Main, {Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0.5, 0, 0.5, 0)})
+            MainCorner.CornerRadius = UDim.new(0, 0)
+        else
+            tween(Main, {Size = preMaxSize, Position = preMaxPos})
+            MainCorner.CornerRadius = UDim.new(0, 10)
+        end
+    end)
+    -- ==========================================
+
     -- Title
     local TitleLabel = Instance.new("TextLabel", Sidebar)
-    TitleLabel.Size = UDim2.new(1, -20, 0, 50)
-    TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+    TitleLabel.Size = UDim2.new(1, -20, 0, 20)
+    TitleLabel.Position = UDim2.new(0, 12, 0, 36)
     TitleLabel.BackgroundTransparency = 1
     TitleLabel.Font = Enum.Font.GothamBold
     TitleLabel.Text = kavName
@@ -161,8 +230,8 @@ function Kavo.CreateLib(kavName, themeName)
 
     -- Tabs Container
     local TabContainer = Instance.new("ScrollingFrame", Sidebar)
-    TabContainer.Size = UDim2.new(1, -10, 1, -60)
-    TabContainer.Position = UDim2.new(0, 5, 0, 50)
+    TabContainer.Size = UDim2.new(1, -10, 1, -70)
+    TabContainer.Position = UDim2.new(0, 5, 0, 65)
     TabContainer.BackgroundTransparency = 1
     TabContainer.ScrollBarThickness = 0
     
